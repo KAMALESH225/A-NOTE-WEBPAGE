@@ -1,0 +1,108 @@
+{% extends "base.html" %}
+
+{% block title %}{{ note.title }} - Shared Note{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="row justify-content-center">
+        <div class="col-lg-8">
+            <div class="shared-note-container">
+                <!-- Header -->
+                <div class="shared-note-header mb-4">
+                    <div class="d-flex align-items-center mb-3">
+                        <i class="fas fa-share-alt text-primary me-2"></i>
+                        <span class="text-muted">Shared Note</span>
+                    </div>
+                    <h1 class="display-6 mb-3">{{ note.title }}</h1>
+                    <div class="note-meta">
+                        <small class="text-muted">
+                            <i class="fas fa-user me-1"></i>
+                            By {{ note.user.username }}
+                            {% if note.folder %}
+                                <span class="mx-2">•</span>
+                                <i class="fas fa-folder me-1" style="color: {{ note.folder.color }}"></i>
+                                {{ note.folder.name }}
+                            {% endif %}
+                            <span class="mx-2">•</span>
+                            <i class="fas fa-calendar me-1"></i>
+                            {{ note.updated_at.strftime('%B %d, %Y') }}
+                        </small>
+                    </div>
+                </div>
+
+                <!-- Content -->
+                <div class="shared-note-content">
+                    <div class="note-content-wrapper">
+                        {{ note.content|safe }}
+                    </div>
+                </div>
+
+                <!-- Footer -->
+                <div class="shared-note-footer mt-5 pt-4 border-top">
+                    <div class="text-center">
+                        <p class="text-muted mb-3">
+                            <i class="fas fa-sticky-note me-2"></i>
+                            Created with NoteVault
+                        </p>
+                        <a href="{{ url_for('index') }}" class="btn btn-primary">
+                            <i class="fas fa-plus me-2"></i>Create Your Own Notes
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+.shared-note-container {
+    background: var(--bs-dark);
+    border-radius: 15px;
+    padding: 2rem;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+    border: 1px solid var(--bs-border-color);
+    margin: 2rem 0;
+}
+
+.shared-note-header {
+    border-bottom: 1px solid var(--bs-border-color);
+    padding-bottom: 1.5rem;
+}
+
+.note-content-wrapper {
+    background: var(--bs-gray-900);
+    border-radius: 8px;
+    padding: 2rem;
+    min-height: 200px;
+    line-height: 1.6;
+}
+
+.note-content-wrapper p {
+    margin-bottom: 1rem;
+}
+
+.note-content-wrapper h1,
+.note-content-wrapper h2,
+.note-content-wrapper h3 {
+    margin-top: 1.5rem;
+    margin-bottom: 1rem;
+}
+
+.note-content-wrapper ul,
+.note-content-wrapper ol {
+    margin-bottom: 1rem;
+    padding-left: 2rem;
+}
+
+.note-content-wrapper blockquote {
+    border-left: 4px solid var(--bs-primary);
+    padding-left: 1rem;
+    margin: 1rem 0;
+    font-style: italic;
+}
+
+.shared-note-footer {
+    border-top: 1px solid var(--bs-border-color);
+}
+</style>
+{% endblock %}

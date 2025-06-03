@@ -1,0 +1,199 @@
+{% extends "base.html" %}
+
+{% block title %}Dashboard - NoteVault{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row">
+        <!-- Sidebar -->
+        <div class="col-md-3 col-lg-2 sidebar">
+            <div class="sidebar-content">
+                <div class="d-flex justify-content-between align-items-center mb-3">
+                    <h6 class="text-muted text-uppercase fw-bold">Folders</h6>
+                    <button class="btn btn-sm btn-outline-primary" data-bs-toggle="modal" data-bs-target="#createFolderModal">
+                        <i class="fas fa-plus"></i>
+                    </button>
+                </div>
+                
+                <div class="folder-list">
+                    <a href="{{ url_for('dashboard') }}" class="folder-item {% if not current_folder %}active{% endif %}">
+                        <i class="fas fa-home me-2"></i>All Notes
+                        <span class="badge">{{ notes|length }}</span>
+                    </a>
+                    
+                    <a href="{{ url_for('dashboard', favorites='true') }}" class="folder-item">
+                        <i class="fas fa-star me-2"></i>Favorites
+                    </a>
+                    
+                    {% for folder in folders %}
+                    <a href="{{ url_for('dashboard', folder=folder.id) }}" 
+                       class="folder-item {% if current_folder == folder.id|string %}active{% endif %}">
+                        <i class="fas fa-folder me-2" style="color: {{ folder.color }}"></i>
+                        {{ folder.name }}
+                        <div class="folder-actions">
+                            <form method="POST" action="{{ url_for('delete_folder', folder_id=folder.id) }}" 
+                                  class="d-inline" onsubmit="return confirm('Delete this folder?')">
+                                <button type="submit" class="btn-sm btn-link text-danger p-0">
+                                    <i class="fas fa-trash"></i>
+                                </button>
+                            </form>
+                        </div>
+                    </a>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+        
+        <!-- Main Content -->
+        <div class="col-md-9 col-lg-10 main-content">
+            <div class="content-header">
+                <div class="row align-items-center mb-4">
+                    <div class="col">
+                        <h1 class="h3 mb-0">
+                            {% if current_folder %}
+                                {% for folder in folders %}
+                                    {% if folder.id == current_folder|int %}
+                                        <i class="fas fa-folder me-2" style="color: {{ folder.color }}"></i>{{ folder.name }}
+                                    {% endif %}
+                                {% endfor %}
+                            {% else %}
+                                <i class="fas fa-sticky-note me-2"></i>All Notes
+                            {% endif %}
+                        </h1>
+                    </div>
+                    <div class="col-auto">
+                        <a href="{{ url_for('new_note') }}" class="btn btn-primary">
+                            <i class="fas fa-plus me-2"></i>New Note
+                        </a>
+                    </div>
+                </div>
+                
+                <!-- Search Bar -->
+                <div class="search-bar mb-4">
+                    <form method="GET" class="d-flex">
+                        <input type="hidden" name="folder" value="{{ current_folder or '' }}">
+                        <div class="input-group">
+                            <span class="input-group-text">
+                                <i class="fas fa-search"></i>
+                            </span>
+                            <input type="text" class="form-control" name="search" 
+                                   placeholder="Search notes..." value="{{ search_query }}">
+                            <button type="submit" class="btn btn-outline-secondary">Search</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+            
+            <!-- Notes Grid -->
+            <div class="notes-grid">
+                {% if notes %}
+                    <div class="row g-4">
+                        {% for note in notes %}
+                        <div class="col-lg-4 col-md-6">
+                            <div class="note-card" onclick="location.href='{{ url_for('view_note', note_id=note.id) }}'">
+                                <div class="note-header">
+                                    <h6 class="note-title">{{ note.title }}</h6>
+                                    <div class="note-actions">
+                                        <button class="btn btn-sm btn-link favorite-btn p-0" 
+                                                data-note-id="{{ note.id }}" 
+                                                onclick="event.stopPropagation(); toggleFavorite({{ note.id }})">
+                                            <i class="fas fa-star {% if note.is_favorite %}text-warning{% else %}text-muted{% endif %}"></i>
+                                        </button>
+                                    </div>
+                                </div>
+                                
+                                <div class="note-content">
+                                    <p class="text-muted">{{ note.get_excerpt() }}</p>
+                                </div>
+                                
+                                <div class="note-footer">
+                                    <div class="note-meta">
+                                        {% if note.folder %}
+                                            <span class="badge" style="background-color: {{ note.folder.color }}">
+                                                {{ note.folder.name }}
+                                            </span>
+                                        {% endif %}
+                                        <small class="text-muted">{{ note.updated_at.strftime('%b %d, %Y') }}</small>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                {% else %}
+                    <div class="empty-state">
+                        <i class="fas fa-sticky-note fa-4x text-muted mb-3"></i>
+                        <h4 class="text-muted">No notes found</h4>
+                        <p class="text-muted">
+                            {% if search_query %}
+                                No notes match your search criteria.
+                            {% else %}
+                                Start by creating your first note.
+                            {% endif %}
+                        </p>
+                        <a href="{{ url_for('new_note') }}" class="btn btn-primary">
+                            <i class="fas fa-plus me-2"></i>Create Note
+                        </a>
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Create Folder Modal -->
+<div class="modal fade" id="createFolderModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Create New Folder</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <form method="POST" action="{{ url_for('create_folder') }}">
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label for="folderName" class="form-label">Folder Name</label>
+                        <input type="text" class="form-control" id="folderName" name="name" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="folderColor" class="form-label">Color</label>
+                        <input type="color" class="form-control form-control-color" 
+                               id="folderColor" name="color" value="#0d6efd">
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Create Folder</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function toggleFavorite(noteId) {
+    fetch(`/note/${noteId}/favorite`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            const favoriteBtn = document.querySelector(`[data-note-id="${noteId}"] i`);
+            if (data.is_favorite) {
+                favoriteBtn.classList.remove('text-muted');
+                favoriteBtn.classList.add('text-warning');
+            } else {
+                favoriteBtn.classList.remove('text-warning');
+                favoriteBtn.classList.add('text-muted');
+            }
+        }
+    })
+    .catch(error => console.error('Error:', error));
+}
+</script>
+{% endblock %}

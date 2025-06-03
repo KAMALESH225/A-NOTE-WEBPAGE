@@ -1,0 +1,297 @@
+{% extends "base.html" %}
+
+{% block title %}{{ 'Edit' if note else 'New' }} Note - NoteVault{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-lg-8 mx-auto">
+            <div class="note-editor">
+                <form method="POST" action="{{ url_for('save_note') }}" id="noteForm">
+                    {% if note %}
+                        <input type="hidden" name="note_id" value="{{ note.id }}">
+                    {% endif %}
+                    
+                    <!-- Editor Header -->
+                    <div class="editor-header">
+                        <div class="row align-items-center mb-4">
+                            <div class="col">
+                                <a href="{{ url_for('dashboard') }}" class="btn btn-outline-secondary">
+                                    <i class="fas fa-arrow-left me-2"></i>Back to Dashboard
+                                </a>
+                            </div>
+                            <div class="col-auto">
+                                <div class="btn-group me-2">
+                                    {% if note %}
+                                        <button type="button" class="btn btn-outline-primary" onclick="shareNote()">
+                                            <i class="fas fa-share me-1"></i>Share
+                                        </button>
+                                        <div class="btn-group">
+                                            <button type="button" class="btn btn-outline-secondary dropdown-toggle" 
+                                                    data-bs-toggle="dropdown">
+                                                <i class="fas fa-download me-1"></i>Export
+                                            </button>
+                                            <ul class="dropdown-menu">
+                                                <li><a class="dropdown-item" href="{{ url_for('export_note', note_id=note.id, format='txt') }}">
+                                                    <i class="fas fa-file-alt me-2"></i>Text File
+                                                </a></li>
+                                                <li><a class="dropdown-item" href="{{ url_for('export_note', note_id=note.id, format='pdf') }}">
+                                                    <i class="fas fa-file-pdf me-2"></i>PDF
+                                                </a></li>
+                                            </ul>
+                                        </div>
+                                        <button type="button" class="btn btn-outline-danger" onclick="deleteNote()">
+                                            <i class="fas fa-trash me-1"></i>Delete
+                                        </button>
+                                    {% endif %}
+                                </div>
+                                <button type="submit" class="btn btn-primary">
+                                    <i class="fas fa-save me-2"></i>Save Note
+                                </button>
+                            </div>
+                        </div>
+                        
+                        <!-- Note Title -->
+                        <div class="mb-3">
+                            <input type="text" class="form-control form-control-lg" 
+                                   name="title" placeholder="Note title..." 
+                                   value="{{ note.title if note else '' }}" required>
+                        </div>
+                        
+                        <!-- Folder Selection -->
+                        <div class="mb-4">
+                            <label for="folder_id" class="form-label">Folder</label>
+                            <select class="form-select" name="folder_id" id="folder_id">
+                                <option value="">No Folder</option>
+                                {% for folder in folders %}
+                                    <option value="{{ folder.id }}" 
+                                            {% if note and note.folder_id == folder.id %}selected{% endif %}>
+                                        {{ folder.name }}
+                                    </option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                    </div>
+                    
+                    <!-- Rich Text Editor -->
+                    <div class="editor-content">
+                        <div id="noteContent" style="height: 400px;">{{ note.content if note else '' }}</div>
+                        <textarea name="content" id="noteContentHidden" style="display: none;">{{ note.content if note else '' }}</textarea>
+                    </div>
+                </form>
+                
+                <!-- Auto-save indicator -->
+                <div class="autosave-indicator" id="autosaveIndicator">
+                    <i class="fas fa-check-circle text-success"></i>
+                    <span>Auto-saved</span>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Share Modal -->
+<div class="modal fade" id="shareModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Share Note</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <p>Anyone with this link can view your note:</p>
+                <div class="input-group">
+                    <input type="text" class="form-control" id="shareLink" readonly>
+                    <button class="btn btn-outline-secondary" onclick="copyShareLink()">
+                        <i class="fas fa-copy"></i>
+                    </button>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Delete Confirmation Modal -->
+{% if note %}
+<div class="modal fade" id="deleteModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Delete Note</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <p>Are you sure you want to delete this note? This action cannot be undone.</p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <form method="POST" action="{{ url_for('delete_note', note_id=note.id) }}" class="d-inline">
+                    <button type="submit" class="btn btn-danger">Delete Note</button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ url_for('static', filename='js/editor.js') }}"></script>
+<script>
+let quill;
+let autosaveTimer;
+let noteId = {{ note.id if note else 'null' }};
+
+// Initialize Quill
+document.addEventListener('DOMContentLoaded', function() {
+    quill = new Quill('#noteContent', {
+        theme: 'snow',
+        modules: {
+            toolbar: [
+                [{ 'header': [1, 2, 3, false] }],
+                ['bold', 'italic', 'underline', 'strike'],
+                [{ 'list': 'ordered'}, { 'list': 'bullet' }],
+                [{ 'indent': '-1'}, { 'indent': '+1' }],
+                ['link', 'blockquote', 'code-block'],
+                [{ 'align': [] }],
+                ['clean']
+            ]
+        },
+        placeholder: 'Start writing your note...'
+    });
+    
+    // Set initial content if editing existing note
+    const hiddenTextarea = document.getElementById('noteContentHidden');
+    if (hiddenTextarea.value) {
+        quill.root.innerHTML = hiddenTextarea.value;
+    }
+    
+    // Auto-save functionality
+    quill.on('text-change', function() {
+        if (noteId) {
+            scheduleAutosave();
+        }
+        // Update hidden textarea
+        hiddenTextarea.value = quill.root.innerHTML;
+        
+        // Auto-title feature: if title is empty, use first line of content
+        autoUpdateTitle();
+    });
+    
+    function autoUpdateTitle() {
+        const titleField = document.querySelector('input[name="title"]');
+        if (!titleField.value.trim()) {
+            const plainText = quill.getText().trim();
+            if (plainText) {
+                const firstLine = plainText.split('\n')[0].substring(0, 50);
+                titleField.value = firstLine;
+                titleField.style.color = '#6c757d'; // Gray color to indicate auto-generated
+            }
+        }
+    }
+    
+    // Reset title color when user manually types
+    document.querySelector('input[name="title"]').addEventListener('input', function() {
+        this.style.color = '';
+    });
+});
+
+function scheduleAutosave() {
+    clearTimeout(autosaveTimer);
+    autosaveTimer = setTimeout(autosave, 2000);
+}
+
+function autosave() {
+    if (!noteId || !quill) return;
+    
+    const content = quill.root.innerHTML;
+    
+    fetch('/api/autosave', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+            note_id: noteId,
+            content: content
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            showAutosaveIndicator();
+        }
+    })
+    .catch(error => console.error('Autosave error:', error));
+}
+
+function showAutosaveIndicator() {
+    const indicator = document.getElementById('autosaveIndicator');
+    indicator.style.display = 'flex';
+    setTimeout(() => {
+        indicator.style.display = 'none';
+    }, 2000);
+}
+
+function shareNote() {
+    if (!noteId) {
+        alert('Please save the note first before sharing.');
+        return;
+    }
+    
+    fetch(`/note/${noteId}/share`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        }
+    })
+    .then(response => {
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        return response.json();
+    })
+    .then(data => {
+        if (data.success) {
+            document.getElementById('shareLink').value = data.share_url;
+            new bootstrap.Modal(document.getElementById('shareModal')).show();
+        } else {
+            alert('Failed to generate share link. Please try again.');
+        }
+    })
+    .catch(error => {
+        console.error('Share error:', error);
+        alert('Error sharing note: ' + error.message);
+    });
+}
+
+function copyShareLink() {
+    const shareLink = document.getElementById('shareLink');
+    shareLink.select();
+    document.execCommand('copy');
+    
+    // Show feedback
+    const copyBtn = event.target.closest('button');
+    const originalText = copyBtn.innerHTML;
+    copyBtn.innerHTML = '<i class="fas fa-check"></i>';
+    setTimeout(() => {
+        copyBtn.innerHTML = originalText;
+    }, 1000);
+}
+
+function deleteNote() {
+    new bootstrap.Modal(document.getElementById('deleteModal')).show();
+}
+
+// Save form submission handler
+document.getElementById('noteForm').addEventListener('submit', function(e) {
+    if (quill) {
+        // Update hidden textarea with Quill content
+        document.getElementById('noteContentHidden').value = quill.root.innerHTML;
+    }
+});
+</script>
+{% endblock %}
